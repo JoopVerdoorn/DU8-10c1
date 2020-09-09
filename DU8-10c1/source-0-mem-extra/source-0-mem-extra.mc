@@ -3,12 +3,26 @@ using Toybox.Lang;
 using Toybox.System;
 using Toybox.Application.Storage;
 
+class RunDynamicsListen extends Toybox.AntPlus.RunningDynamicsListener {
+	var dynamics;
+	
+	function initialize() {
+		RunningDynamicsListener.initialize();
+	}
+	
+	function onRunningDynamicsUpdate(data) {
+		dynamics = data;	
+	}
+}
+
 class ExtramemView extends DatarunpremiumView {   
 	hidden var uHrZones   			        = [ 93, 111, 130, 148, 167, 185 ];	
 	hidden var uPowerZones                  = "184:Z1:227:Z2:255:Z3:284:Z4:326:Z5:369";
 	hidden var uPower10Zones				= "180:Z1:210:Z2:240:Z3:270:Z4:300:Z5:330:Z6:360:Z7:390:Z8:420:Z9:450:Z10:480";
 	hidden var PalPowerzones 				= false;
-	hidden var mZone 								= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var mZone 						= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var listen;
+	hidden var dynamics;
 	var uBlackBackground 					= false;    	
 	var counterPace 						= 0;
 	var rollingPaceValue 					= new [303];
@@ -18,18 +32,17 @@ class ExtramemView extends DatarunpremiumView {
 	var uClockFieldMetric 					= 38; //! Powerzone is default
 	var HRzone								= 0;
 	hidden var Powerzone					= 0;
-	var VertPace1							= 0;
-	var VertPace2							= 0;
-	var VertPace3							= 0;
-	var VertPace4							= 0;
-	var VertPace5							= 0;
+	var totalVertPace 						= 0;
+	hidden var VertPace		 					= new [33];
+	var AverageVertspeedinmper30sec			= 0;
+	var CurrentVertSpeedinmpersec 			= 0; 
 	var uGarminColors 						= false;
-	var Z1color = Graphics.COLOR_LT_GRAY;
-	var Z2color = Graphics.COLOR_YELLOW;
-	var Z3color = Graphics.COLOR_BLUE;
-	var Z4color = Graphics.COLOR_GREEN;
-	var Z5color = Graphics.COLOR_RED;
-	var Z6color = Graphics.COLOR_PURPLE;
+	var Z1color 							= Graphics.COLOR_LT_GRAY;
+	var Z2color 							= Graphics.COLOR_YELLOW;
+	var Z3color 							= Graphics.COLOR_BLUE;
+	var Z4color 							= Graphics.COLOR_GREEN;
+	var Z5color 							= Graphics.COLOR_RED;
+	var Z6color 							= Graphics.COLOR_PURPLE;
 	var disablelabel1 						= false;
 	var disablelabel2 						= false;
 	var disablelabel3 						= false;
@@ -56,10 +69,13 @@ class ExtramemView extends DatarunpremiumView {
 	var AverageCadence 						= 0; 	
 	var tempeTemp 							= 0;
 	var utempunits							= false;
-	var valueAsclast						= 0;
-	var valueDesclast						= 0;
-	var Diff1 								= 0;
-	var Diff2 								= 0;
+	hidden var valueDesc 							= 0;
+	hidden var valueAsc 							= 0; 
+	hidden var valueAsclast						= 0;
+	hidden var valueDesclast						= 0;
+	hidden var Diff1 								= 0;
+	hidden var Diff2 								= 0;
+	hidden var startTime;
 	
     function initialize() {
         DatarunpremiumView.initialize();
@@ -80,11 +96,28 @@ class ExtramemView extends DatarunpremiumView {
 		disablelabel8 						= mApp.getProperty("pdisablelabel8");
 		disablelabel9 						= mApp.getProperty("pdisablelabel9");
 		disablelabel10 						= mApp.getProperty("pdisablelabel10");
+		
+		if(Toybox.AntPlus has :RunningDynamics) {
+			listen = new RunDynamicsListen();
+    		dynamics = new Toybox.AntPlus.RunningDynamics(listen);
+		}
+		
+		for (var i = 1; i<33; ++i) {
+				VertPace[i] = 0; 
+		}
     }
 
 	function onUpdate(dc) {
 		//! call the parent onUpdate to do the base logic
 		DatarunpremiumView.onUpdate(dc);
+
+if(listen != null) {
+    var dyna = listen.dynamics;
+//!System.println(dyna);    
+    // Etc.
+}
+
+
 		
 		tempeTemp = (Storage.getValue("mytemp") != null) ? Storage.getValue("mytemp") : 0;
 
@@ -152,24 +185,7 @@ class ExtramemView extends DatarunpremiumView {
         mRacesec = mRacesec.toNumber();
         mRacetime = mRacehour*3600 + mRacemin*60 + mRacesec;
 	
-        
-		//! Calculate vertical speed
-		var valueDesc = (info.totalDescent != null) ? info.totalDescent : 0;
-        valueDesc = (unitD == 1609.344) ? valueDesc*3.2808 : valueDesc;
-        Diff1 = valueDesc - valueDesclast;
-		var valueAsc = (info.totalAscent != null) ? info.totalAscent : 0;
-        valueAsc = (unitD == 1609.344) ? valueAsc*3.2808 : valueAsc;
-        Diff2 = valueAsc - valueAsclast;
-        valueDesclast = valueDesc;
-        valueAsclast = valueAsc;
-        var CurrentVertSpeedinmpersec = Diff2-Diff1;
-		VertPace5 								= VertPace4;
-		VertPace4 								= VertPace3;
-		VertPace3 								= VertPace2;
-        VertPace2 								= VertPace1;
-        VertPace1								= CurrentVertSpeedinmpersec; 
-		var AverageVertspeedinmper5sec= (VertPace1+VertPace2+VertPace3+VertPace4+VertPace5)/5;
-		
+		//! Options for metrics
 		var sensorIter = getIterator();
 		maxHR = uHrZones[5];
 		var i = 0; 
@@ -221,7 +237,7 @@ class ExtramemView extends DatarunpremiumView {
         	}  else if (metric[i] == 53) {
            		fieldValue[i] = valueDesc;
             	fieldLabel[i] = "EL loss";
-            	fieldFormat[i] = "0decimal";           	
+            	fieldFormat[i] = "0decimal";                 	     	
         	}  else if (metric[i] == 61) {
            		fieldValue[i] = (info.currentCadence != null) ? Math.round(info.currentCadence/2) : 0;
             	fieldLabel[i] = "RCadence";
@@ -235,7 +251,7 @@ class ExtramemView extends DatarunpremiumView {
             	fieldLabel[i] = "Spd ..s";
             	fieldFormat[i] = "2decimal";           	
         	}  else if (metric[i] == 67) {
-           		fieldValue[i] = (unitD == 1609.344) ? AverageVertspeedinmper5sec*3.2808 : AverageVertspeedinmper5sec;
+           		fieldValue[i] = (unitD == 1609.344) ? AverageVertspeedinmper30sec*3.2808 : AverageVertspeedinmper30sec;
             	fieldLabel[i] = "V speed";
             	fieldFormat[i] = "1decimal";
 			} else if (metric[i] == 83) {
@@ -287,8 +303,54 @@ class ExtramemView extends DatarunpremiumView {
 	            fieldValue[i] = tempeTemp;
 	            fieldValue[i] = (utempunits == false) ? fieldValue[i] : fieldValue[i]*1.8+32;
     	        fieldLabel[i] = "Tempe T";
-        	    fieldFormat[i] = "0decimal";
-			} 
+        	    fieldFormat[i] = "1decimal";
+        	} else if (metric[i] == 108) {
+           		fieldValue[i] = (unitD == 1609.344) ? AverageVertspeedinmper30sec*3.2808*3600 : AverageVertspeedinmper30sec*3600;
+            	fieldLabel[i] = "VAM";
+            	fieldFormat[i] = "1decimal";
+			} else if (metric[i] == 109) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.groundContactBalance != null) ? Ant.RunningDynamicsData.groundContactBalance : 0;
+				fieldLabel[i] = "GBalance";
+            	fieldFormat[i] = "1decimal"; 
+            } else if (metric[i] == 110) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.groundContactTime != null) ? Ant.RunningDynamicsData.groundContactTime : 0;
+				fieldLabel[i] = "GCTime";
+            	fieldFormat[i] = "0decimal";
+            } else if (metric[i] == 111) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.stanceTime != null) ? Ant.RunningDynamicsData.stanceTime : 0;
+				fieldLabel[i] = "StanceT%";
+            	fieldFormat[i] = "1decimal"; 	
+            } else if (metric[i] == 112) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.stepCount != null) ? Ant.RunningDynamicsData.stepCount : 0;
+				fieldLabel[i] = "StanceT%";
+            	fieldFormat[i] = "1decimal";
+            } else if (metric[i] == 113) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.stepLength != null) ? Ant.RunningDynamicsData.stepLength : 0;
+				fieldValue[i] = (unitD == 1609.344) ? fieldValue[i]*3.2808/1000 : fieldValue[i]/1000;
+				fieldLabel[i] = "StepL";
+            	fieldFormat[i] = "2decimal";
+            } else if (metric[i] == 114) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsListener != null) ? Ant.RunningDynamicsListener : 0;
+				fieldLabel[i] = "VertOsc";
+            	fieldFormat[i] = "1decimal";
+            } else if (metric[i] == 115) {			
+fieldValue[i]=1;
+//!				fieldValue[i] = (Ant.RunningDynamicsData.verticalRatio != null) ? Ant.RunningDynamicsData.verticalRatio : 0;
+				fieldLabel[i] = "VertRat";
+            	fieldFormat[i] = "1decimal";
+            } else if (metric[i] == 116) {			
+				var myTime = Toybox.System.getClockTime();
+				startTime = (jTimertime > 0) ? startTime : myTime; 
+				fieldValue[i] = (myTime.hour.toNumber()*3600 + myTime.min.toNumber()*60 + myTime.sec.toNumber()) - (startTime.hour.toNumber()*3600 + startTime.min.toNumber()*60 + startTime.sec.toNumber());
+				fieldLabel[i] = "ElapsT";
+            	fieldFormat[i] = "time";
+            }
 		}
 
 		var CFMValue = 0;
@@ -442,7 +504,7 @@ class ExtramemView extends DatarunpremiumView {
             	CFMLabel = "Spd ..s";
             	CFMFormat = "2decimal";           	
         	}  else if (uClockFieldMetric == 67) {
-           		CFMValue = (unitD == 1609.344) ? AverageVertspeedinmper5sec*3.2808 : AverageVertspeedinmper5sec;
+           		CFMValue = (unitD == 1609.344) ? AverageVertspeedinmper30sec*3.2808 : AverageVertspeedinmper30sec;
             	CFMLabel = "V speed";
             	CFMFormat = "2decimal"; 
             } else if (uClockFieldMetric == 81) {
@@ -506,7 +568,40 @@ class ExtramemView extends DatarunpremiumView {
 	            CFMValue = tempeTemp;
 	            CFMValue = (utempunits == false) ? CFMValue : CFMValue*1.8+32;
     	        CFMLabel = "Tempe T";
-        	    CFMFormat = "0decimal";
+        	    CFMFormat = "1decimal";
+        	}  else if (uClockFieldMetric == 108) {
+           		CFMValue = (unitD == 1609.344) ? AverageVertspeedinmper30sec*3.2808*3600 : AverageVertspeedinmper30sec*3600;
+            	CFMLabel = "VAM";
+            	CFMFormat = "0decimal";
+            } else if (uClockFieldMetric == 109) {			
+				CFMValue = (Ant.RunningDynamicsData.groundContactBalance != null) ? Ant.RunningDynamicsData.groundContactBalance : 0;
+				CFMLabel = "GBalance";
+            	CFMFormat = "1decimal"; 
+            } else if (uClockFieldMetric == 110) {			
+				CFMValue = (Ant.RunningDynamicsData.groundContactTime != null) ? Ant.RunningDynamicsData.groundContactTime : 0;
+				CFMLabel = "GCTime";
+            	CFMFormat = "0decimal";
+            } else if (uClockFieldMetric == 111) {			
+				CFMValue = (Ant.RunningDynamicsData.stanceTime != null) ? Ant.RunningDynamicsData.stanceTime : 0;
+				CFMLabel = "StanceT%";
+            	CFMFormat = "1decimal"; 	
+            } else if (uClockFieldMetric == 112) {			
+				CFMValue = (Ant.RunningDynamicsData.stepCount != null) ? Ant.RunningDynamicsData.stepCount : 0;
+				CFMLabel = "StanceT%";
+            	CFMFormat = "1decimal";
+            } else if (uClockFieldMetric == 113) {			
+				CFMValue = (Ant.RunningDynamicsData.stepLength != null) ? Ant.RunningDynamicsData.stepLength : 0;
+				CFMValue = (unitD == 1609.344) ? CFMValue*3.2808/1000 : CFMValue/1000;
+				CFMLabel = "StepL";
+            	CFMFormat = "2decimal";
+            } else if (uClockFieldMetric == 114) {			
+				CFMValue = (Ant.RunningDynamicsData.verticalOscillation != null) ? Ant.RunningDynamicsData.verticalOscillation : 0;
+				CFMLabel = "VertOsc";
+            	CFMFormat = "1decimal";
+            } else if (uClockFieldMetric == 115) {			
+				CFMValue = (Ant.RunningDynamicsData.verticalRatio != null) ? Ant.RunningDynamicsData.verticalRatio : 0;
+				CFMLabel = "VertRat";
+            	CFMFormat = "1decimal";
 			}		 
 
 		//! Conditions for showing the demoscreen       

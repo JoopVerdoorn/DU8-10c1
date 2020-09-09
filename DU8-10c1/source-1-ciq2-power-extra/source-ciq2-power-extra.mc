@@ -112,6 +112,7 @@ class CiqView extends ExtramemView {
              Attention.backlight(true);
         }
 		//! We only do some calculations if the timer is running
+		startTime = (jTimertime == 0) ? Toybox.System.getClockTime() : startTime;
 		if (mTimerRunning) {  
 			jTimertime 		 = jTimertime + 1;
 			//!Calculate lapheartrate
@@ -120,6 +121,31 @@ class CiqView extends ExtramemView {
            	//!Calculate lapCadence
             mCadenceTime	 = (info.currentCadence != null) ? mCadenceTime+1 : mCadenceTime;
             mElapsedCadence= (info.currentCadence != null) ? mElapsedCadence + info.currentCadence : mElapsedCadence;
+
+	        //! Calculate vertical speed
+    	    valueDesc = (info.totalDescent != null) ? info.totalDescent : 0;
+        	Diff1 = valueDesc - valueDesclast;
+	        valueDesc = (unitD == 1609.344) ? valueDesc*3.2808 : valueDesc;
+    	    valueAsc = (info.totalAscent != null) ? info.totalAscent : 0;
+        	Diff2 = valueAsc - valueAsclast;        
+	        valueAsc = (unitD == 1609.344) ? valueAsc*3.2808 : valueAsc;
+    	    valueDesclast = valueDesc;
+        	valueAsclast = valueAsc;
+	        CurrentVertSpeedinmpersec = Diff2-Diff1;
+    	    for (i = 1; i < 11; ++i) {
+	    	    if (metric[i] == 67 or metric[i] == 108) {
+					VertPace[1]	= CurrentVertSpeedinmpersec;
+					for (var j = 1; j < 31; ++j) {			
+						VertPace[j] = VertPace[j+1];
+						totalVertPace = VertPace[j] + totalVertPace;
+					}
+					if (jTimertime>0) {		
+						AverageVertspeedinmper30sec= (jTimertime<31) ? totalVertPace/jTimertime : totalVertPace/30;
+						totalVertPace = 0;
+					}
+				}
+			}
+
 
 			//! Calculate temperature compensation, B-variables reference cell number from cells of conversion excelsheet  		
             var B6 = 22; 			//! is cell B6
@@ -651,18 +677,38 @@ class CiqView extends ExtramemView {
         		}
       			dc.drawText(xx, y, Garminfont, fTimer, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
       			dc.drawText(xl, yl, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-        } else {
-        	if ( counter == 3 or counter == 5 or counter == 6 or counter == 8) {
-        		if (uUpperMiddleRowBig == false) {
-        			dc.drawText(x, y, Garminfont, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-        			dc.drawText(xl, yl-labelFontOffset, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-        		} else {
-        			dc.drawText(x, y, Garminfontbig, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-        			dc.drawText(xl, yl, Labelfont,  fieldlabel.substring(0,1) , Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-       				dc.drawText(xl, yl+17, Labelfont,  fieldlabel.substring(1,2), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
-       				dc.drawText(xl, yl+34, Labelfont,  fieldlabel.substring(2,3), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {      	
+       		if (uUpperMiddleRowBig == true and uLowerMiddleRowBig == true) {
+      			if ( counter == 3 or counter == 5 or counter == 6 or counter == 8) {
+	      			dc.drawText(x, y, Garminfontbig, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+    	  			dc.drawText(xl, yl, Labelfont,  fieldlabel.substring(0,1) , Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+17, Labelfont,  fieldlabel.substring(1,2), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+34, Labelfont,  fieldlabel.substring(2,3), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   				} else {
+   					dc.drawText(x, y, Garminfont, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+       				dc.drawText(xl, yl-labelFontOffset, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
         		}
-	    	} else {	    	
+       		} else if (uUpperMiddleRowBig == true ) {
+      			if ( counter == 3 or counter == 5) {
+	      			dc.drawText(x, y, Garminfontbig, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+    	  			dc.drawText(xl, yl, Labelfont,  fieldlabel.substring(0,1) , Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+17, Labelfont,  fieldlabel.substring(1,2), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+34, Labelfont,  fieldlabel.substring(2,3), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   				} else {
+   					dc.drawText(x, y, Garminfont, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+       				dc.drawText(xl, yl-labelFontOffset, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+        		}
+   			} else if (uLowerMiddleRowBig == true) {
+   				if ( counter == 6 or counter == 8) {
+   					dc.drawText(x, y, Garminfontbig, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+    	  			dc.drawText(xl, yl, Labelfont,  fieldlabel.substring(0,1) , Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+17, Labelfont,  fieldlabel.substring(1,2), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   					dc.drawText(xl, yl+34, Labelfont,  fieldlabel.substring(2,3), Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+   				} else {	    	
+       				dc.drawText(x, y, Garminfont, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+       				dc.drawText(xl, yl-labelFontOffset, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
+       			}
+       		} else {
        			dc.drawText(x, y, Garminfont, fieldvalue, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
        			dc.drawText(xl, yl-labelFontOffset, Labelfont,  fieldlabel, Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);
        		}
