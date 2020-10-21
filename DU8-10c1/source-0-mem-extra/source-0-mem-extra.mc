@@ -3,18 +3,6 @@ using Toybox.Lang;
 using Toybox.System;
 using Toybox.Application.Storage;
 
-class RunDynamicsListen extends Toybox.AntPlus.RunningDynamicsListener {
-	var dynamics;
-	
-	function initialize() {
-		RunningDynamicsListener.initialize();
-	}
-	
-	function onRunningDynamicsUpdate(data) {
-		dynamics = data;	
-	}
-}
-
 class ExtramemView extends DatarunpremiumView {   
 	hidden var uHrZones   			        = [ 93, 111, 130, 148, 167, 185 ];	
 	hidden var uPowerZones                  = "184:Z1:227:Z2:255:Z3:284:Z4:326:Z5:369";
@@ -69,16 +57,42 @@ class ExtramemView extends DatarunpremiumView {
 	var AverageCadence 						= 0; 	
 	var tempeTemp 							= 0;
 	var utempunits							= false;
-	hidden var valueDesc 							= 0;
-	hidden var valueAsc 							= 0; 
-	hidden var valueAsclast						= 0;
-	hidden var valueDesclast						= 0;
-	hidden var Diff1 								= 0;
-	hidden var Diff2 								= 0;
+	hidden var valueDesc 					= 0;
+	hidden var valueAsc 					= 0; 
+	hidden var valueAsclast					= 0;
+	hidden var valueDesclast				= 0;
+	hidden var Diff1 						= 0;
+	hidden var Diff2 						= 0;
 	hidden var startTime;
+	hidden var groundContactBalance			= 0;
+	hidden var rollgroundContactBalance		= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollgroundContactBalance10sec= 0;
+	hidden var groundContactTime			= 0;
+	hidden var rollgroundContactTime		= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollgroundContactTime10sec= 0;
+	hidden var stanceTime					= 0;
+	hidden var rollstanceTime				= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollstanceTime10sec	= 0;
+	hidden var stepCount					= 0;
+	hidden var stepLength					= 0;
+	hidden var rollstepLength				= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollstepLength10sec	= 0;
+	hidden var verticalOscillation			= 0;
+	hidden var rollverticalOscillation		= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollverticalOscillation10sec= 0;
+	hidden var verticalRatio				= 0;
+	hidden var rollverticalRatio			= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+	hidden var AveragerollverticalRatio10sec= 0;
+	var utempcalibration					= 0;
+	var hrRest;
 	
     function initialize() {
         DatarunpremiumView.initialize();
+		
+		var uProfile = Toybox.UserProfile.getProfile();
+		hrRest = (uProfile.restingHeartRate != null) ? uProfile.restingHeartRate : 50;	
+		hrRest = stringOrNumber(hrRest);
+		
 		var mApp 		 					= Application.getApp();
 		uClockFieldMetric 					= mApp.getProperty("pClockFieldMetric");
 		rolavPacmaxsecs  					= mApp.getProperty("prolavPacmaxsecs");
@@ -97,28 +111,29 @@ class ExtramemView extends DatarunpremiumView {
 		disablelabel9 						= mApp.getProperty("pdisablelabel9");
 		disablelabel10 						= mApp.getProperty("pdisablelabel10");
 		
+		startTime = Toybox.System.getClockTime();
+		
 		if(Toybox.AntPlus has :RunningDynamics) {
-			listen = new RunDynamicsListen();
-    		dynamics = new Toybox.AntPlus.RunningDynamics(listen);
+    		dynamics = new Toybox.AntPlus.RunningDynamics(null);
 		}
 		
 		for (var i = 1; i<33; ++i) {
 				VertPace[i] = 0; 
 		}
+		
+		for (i = 1; i < 11; ++i) {
+			rollgroundContactBalance[i] = 0;
+			rollgroundContactTime[i] = 0;
+			rollstanceTime[i] = 0;
+			rollstepLength[i] = 0;
+			rollverticalOscillation[i] = 0;
+			rollverticalRatio[i] = 0;
+		}
     }
 
 	function onUpdate(dc) {
 		//! call the parent onUpdate to do the base logic
-		DatarunpremiumView.onUpdate(dc);
-
-if(listen != null) {
-    var dyna = listen.dynamics;
-//!System.println(dyna);    
-    // Etc.
-}
-
-
-		
+		DatarunpremiumView.onUpdate(dc);		
 		tempeTemp = (Storage.getValue("mytemp") != null) ? Storage.getValue("mytemp") : 0;
 
     	//! Setup back- and foregroundcolours
@@ -184,6 +199,9 @@ if(listen != null) {
         mRacemin = mRacemin.toNumber();
         mRacesec = mRacesec.toNumber();
         mRacetime = mRacehour*3600 + mRacemin*60 + mRacesec;
+
+
+
 	
 		//! Options for metrics
 		var sensorIter = getIterator();
@@ -301,53 +319,43 @@ if(listen != null) {
         	    fieldFormat[i] = "0decimal";
         	} else if (metric[i] == 105) {
 	            fieldValue[i] = tempeTemp;
-	            fieldValue[i] = (utempunits == false) ? fieldValue[i] : fieldValue[i]*1.8+32;
+	            fieldValue[i] = (utempunits == false) ? fieldValue[i]+utempcalibration : fieldValue[i]*1.8+32+utempcalibration;
     	        fieldLabel[i] = "Tempe T";
         	    fieldFormat[i] = "1decimal";
         	} else if (metric[i] == 108) {
            		fieldValue[i] = (unitD == 1609.344) ? AverageVertspeedinmper30sec*3.2808*3600 : AverageVertspeedinmper30sec*3600;
             	fieldLabel[i] = "VAM";
-            	fieldFormat[i] = "1decimal";
+            	fieldFormat[i] = "0decimal";
 			} else if (metric[i] == 109) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.groundContactBalance != null) ? Ant.RunningDynamicsData.groundContactBalance : 0;
+				fieldValue[i] = AveragerollgroundContactBalance10sec;
 				fieldLabel[i] = "GBalance";
             	fieldFormat[i] = "1decimal"; 
             } else if (metric[i] == 110) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.groundContactTime != null) ? Ant.RunningDynamicsData.groundContactTime : 0;
+				fieldValue[i] = AveragerollgroundContactTime10sec;
 				fieldLabel[i] = "GCTime";
             	fieldFormat[i] = "0decimal";
             } else if (metric[i] == 111) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.stanceTime != null) ? Ant.RunningDynamicsData.stanceTime : 0;
+				fieldValue[i] = AveragerollstanceTime10sec;
 				fieldLabel[i] = "StanceT%";
             	fieldFormat[i] = "1decimal"; 	
-            } else if (metric[i] == 112) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.stepCount != null) ? Ant.RunningDynamicsData.stepCount : 0;
-				fieldLabel[i] = "StanceT%";
-            	fieldFormat[i] = "1decimal";
             } else if (metric[i] == 113) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.stepLength != null) ? Ant.RunningDynamicsData.stepLength : 0;
+				fieldValue[i] = AveragerollstepLength10sec;
 				fieldValue[i] = (unitD == 1609.344) ? fieldValue[i]*3.2808/1000 : fieldValue[i]/1000;
 				fieldLabel[i] = "StepL";
             	fieldFormat[i] = "2decimal";
             } else if (metric[i] == 114) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsListener != null) ? Ant.RunningDynamicsListener : 0;
+				fieldValue[i] = AveragerollverticalOscillation10sec;
 				fieldLabel[i] = "VertOsc";
             	fieldFormat[i] = "1decimal";
             } else if (metric[i] == 115) {			
-fieldValue[i]=1;
-//!				fieldValue[i] = (Ant.RunningDynamicsData.verticalRatio != null) ? Ant.RunningDynamicsData.verticalRatio : 0;
+				fieldValue[i] = AveragerollverticalRatio10sec;
 				fieldLabel[i] = "VertRat";
             	fieldFormat[i] = "1decimal";
             } else if (metric[i] == 116) {			
 				var myTime = Toybox.System.getClockTime();
-				startTime = (jTimertime > 0) ? startTime : myTime; 
-				fieldValue[i] = (myTime.hour.toNumber()*3600 + myTime.min.toNumber()*60 + myTime.sec.toNumber()) - (startTime.hour.toNumber()*3600 + startTime.min.toNumber()*60 + startTime.sec.toNumber());
+				fieldValue[i] = (jTimertime == 0) ? 0 : (myTime.hour.toNumber()*3600 + myTime.min.toNumber()*60 + myTime.sec.toNumber()) - (startTime.hour.toNumber()*3600 + startTime.min.toNumber()*60 + startTime.sec.toNumber());
+				var elapsTcorr = (jTimertime == 5 and info.timerTime != null) ? (fieldValue[i] - info.timerTime/1000) : 0;
+				fieldValue[i] = fieldValue[i] - elapsTcorr;
 				fieldLabel[i] = "ElapsT";
             	fieldFormat[i] = "time";
             }
@@ -566,7 +574,7 @@ fieldValue[i]=1;
         	    CFMFormat = "0decimal";
         	} else if (uClockFieldMetric == 105) {
 	            CFMValue = tempeTemp;
-	            CFMValue = (utempunits == false) ? CFMValue : CFMValue*1.8+32;
+	            CFMValue = (utempunits == false) ? CFMValue+utempcalibration : CFMValue*1.8+32+utempcalibration;
     	        CFMLabel = "Tempe T";
         	    CFMFormat = "1decimal";
         	}  else if (uClockFieldMetric == 108) {
@@ -574,32 +582,32 @@ fieldValue[i]=1;
             	CFMLabel = "VAM";
             	CFMFormat = "0decimal";
             } else if (uClockFieldMetric == 109) {			
-				CFMValue = (Ant.RunningDynamicsData.groundContactBalance != null) ? Ant.RunningDynamicsData.groundContactBalance : 0;
+				CFMValue = AveragerollgroundContactBalance10sec;
 				CFMLabel = "GBalance";
             	CFMFormat = "1decimal"; 
             } else if (uClockFieldMetric == 110) {			
-				CFMValue = (Ant.RunningDynamicsData.groundContactTime != null) ? Ant.RunningDynamicsData.groundContactTime : 0;
+				CFMValue = AveragerollgroundContactTime10sec;
 				CFMLabel = "GCTime";
             	CFMFormat = "0decimal";
             } else if (uClockFieldMetric == 111) {			
-				CFMValue = (Ant.RunningDynamicsData.stanceTime != null) ? Ant.RunningDynamicsData.stanceTime : 0;
+				CFMValue = AveragerollstanceTime10sec;
 				CFMLabel = "StanceT%";
             	CFMFormat = "1decimal"; 	
             } else if (uClockFieldMetric == 112) {			
-				CFMValue = (Ant.RunningDynamicsData.stepCount != null) ? Ant.RunningDynamicsData.stepCount : 0;
+				CFMValue = stepCount;
 				CFMLabel = "StanceT%";
             	CFMFormat = "1decimal";
             } else if (uClockFieldMetric == 113) {			
-				CFMValue = (Ant.RunningDynamicsData.stepLength != null) ? Ant.RunningDynamicsData.stepLength : 0;
+				CFMValue = AveragerollstepLength10sec;
 				CFMValue = (unitD == 1609.344) ? CFMValue*3.2808/1000 : CFMValue/1000;
 				CFMLabel = "StepL";
             	CFMFormat = "2decimal";
             } else if (uClockFieldMetric == 114) {			
-				CFMValue = (Ant.RunningDynamicsData.verticalOscillation != null) ? Ant.RunningDynamicsData.verticalOscillation : 0;
+				CFMValue = AveragerollverticalOscillation10sec;
 				CFMLabel = "VertOsc";
             	CFMFormat = "1decimal";
             } else if (uClockFieldMetric == 115) {			
-				CFMValue = (Ant.RunningDynamicsData.verticalRatio != null) ? Ant.RunningDynamicsData.verticalRatio : 0;
+				CFMValue = AveragerollverticalRatio10sec;
 				CFMLabel = "VertRat";
             	CFMFormat = "1decimal";
 			}		 
@@ -893,6 +901,7 @@ fieldValue[i]=1;
         var y = CorString.substring(4, 7);
         var w = CorString.substring(8, 11);
         var h = CorString.substring(12, 15);
+        var baseline = 0;
         x = x.toNumber();
         y = y.toNumber();
         w = w.toNumber();
@@ -911,6 +920,7 @@ fieldValue[i]=1;
             mZ4under = uHrZones[3];
             mZ5under = uHrZones[4];
             mZ5upper = uHrZones[5];
+            baseline = hrRest;
             if (uGarminColors == true) {
         		Z1color = Graphics.COLOR_LT_GRAY;
         		Z2color = Graphics.COLOR_BLUE;
@@ -991,6 +1001,7 @@ fieldValue[i]=1;
             mZ5under = 99999999;
             mZ5upper = 99999999; 
         }
+
         mZone[counter] = 0;
         if (testvalue >= mZ5upper) {
             mfillColour = Z6color;
@@ -1011,10 +1022,10 @@ fieldValue[i]=1;
 			mfillColour = Z1color;        
 			mZone[counter] = Math.round(10*(1+(testvalue-mZ1under+0.00001)/(mZ2under-mZ1under+0.00001)))/10;
 		} else {
-			mfillColour = mColourBackGround;        
-            mZone[counter] = 0;
+			mZone[counter] = Math.round(10*((testvalue-baseline+0.00001)/(mZ1under-baseline+0.00001)))/10;  
+			mfillColour = mColourBackGround;      
 		}		
-
+       
 		if ( PalPowerzones == true) {
 		  if (metric[counter] == 20 or metric[counter] == 21 or metric[counter] == 22 or metric[counter] == 23 or metric[counter] == 24 or metric[counter] == 37 or metric[counter] == 38  or metric[counter] == 99 or metric[counter] == 100 or metric[counter] == 101 or metric[counter] == 102 or metric[counter] == 103 or metric[counter] == 104) {  //! Power=20, Powerzone=38, Pwr 5s=21, L Power=22, L-1 Pwr=23, A Power=24		
         	mZ1under = uPower10Zones.substring(0, 3);
@@ -1077,7 +1088,7 @@ fieldValue[i]=1;
                     mZone[counter] = Math.round(10*(1+(testvalue-mZ1under+0.00001)/(mZ2under-mZ1under+0.00001)))/10;
                 } else {
                     mfillColour = Graphics.COLOR_LT_GRAY;        //! (Z0)
-                    mZone[counter] = 0;
+                    mZone[counter] = Math.round(10*((testvalue-baseline+0.00001)/(mZ1under-baseline+0.00001)))/10;
                 }
 		 	  }
 		   }
@@ -1108,6 +1119,16 @@ function getIterator() {
         return Toybox.SensorHistory.getTemperatureHistory({});
     }
     return null;
+}
+
+function stringOrNumber(valueorcharacter) {
+	if (valueorcharacter instanceof Toybox.Lang.Number) {
+		//!process Number	
+		return valueorcharacter;
+	} else {
+		//!process String	
+		return 50;
+	}
 }
 
 (:background)
